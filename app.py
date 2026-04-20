@@ -5,10 +5,8 @@ from xhtml2pdf import pisa
 import io
 
 st.set_page_config(page_title="Partner Revenue Tool", layout="centered")
-
 st.title("📊 Revenue PDF Generator")
 
-# User Inputs
 report_date = st.text_input("Enter Month/Year (e.g. October 2024)")
 uploaded_file = st.file_uploader("Upload your Revenue CSV", type=['csv'])
 
@@ -16,7 +14,7 @@ def create_pdf(row, date_str):
     with open("template.html", "r") as f:
         template = Template(f.read())
     
-    # Map the columns you specified
+    # Matching the exact column names from your source [cite: 1]
     html_out = template.render(
         report_date=date_str,
         partner_name=row['Partner'],
@@ -32,11 +30,13 @@ def create_pdf(row, date_str):
     return pdf_buffer.getvalue()
 
 if uploaded_file and report_date:
-    df = pd.read_csv(uploaded_file)
-    # Remove rows with empty revenue
+    # Use 'skipinitialspace' to handle any messy Excel-to-CSV exporting
+    df = pd.read_csv(uploaded_file, skipinitialspace=True)
+    
+    # Filter: Skip rows where 'Rev after DD' is missing [cite: 1]
     df = df.dropna(subset=['Rev after DD'])
     
-    # Group by Partner (Column C) [cite: 1]
+    # Grouping by Partner (Column C) [cite: 1]
     summary = df.groupby('Partner').agg({
         'Total': 'sum',
         'Rev after DD': 'sum',
@@ -45,7 +45,7 @@ if uploaded_file and report_date:
         'KMS': 'sum'
     }).reset_index()
 
-    st.success(f"Generated data for {len(summary)} partners.")
+    st.success(f"Calculated data for {len(summary)} unique partners.")
     
     for _, row in summary.iterrows():
         pdf_data = create_pdf(row, report_date)
@@ -53,5 +53,5 @@ if uploaded_file and report_date:
             label=f"📥 Download PDF for {row['Partner']}",
             data=pdf_data,
             file_name=f"{row['Partner']}_Summary.pdf",
-            mime="application/pdf"
+            key=row['Partner'] # Unique key for Streamlit buttons
         )
