@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from docxtpl import DocxTemplate
+from io import BytesIO
+import zipfile
 
 st.title("Partner Revenue Report Generator")
 
@@ -8,27 +11,103 @@ uploaded_file = st.file_uploader(
     type=["xlsx"]
 )
 
-if uploaded_file:
+month = st.text_input("Month")
+year = st.text_input("Year")
 
-    header_row = st.number_input(
-        "Header Row Number",
-        min_value=1,
-        max_value=50,
-        value=1
-    )
+if uploaded_file and month and year:
 
     try:
-        # Read Excel using selected header row
+
+        # Read raw Excel with no header
+        raw_df = pd.read_excel(
+            uploaded_file,
+            header=None
+        )
+
+        # Find the row where "Partner" appears
+        header_row = None
+
+        for idx, row in raw_df.iterrows():
+
+            row_values = row.astype(str).tolist()
+
+            if "Partner" in row_values:
+                header_row = idx
+                break
+
+        if header_row is None:
+            st.error("Could not find header row containing 'Partner'")
+            st.stop()
+
+        # Read Excel again using detected header row
         df = pd.read_excel(
             uploaded_file,
-            header=header_row - 1
+            header=header_row
         )
+
+        st.success(f"Detected header row: {header_row + 1}")
 
         st.subheader("Detected Columns")
         st.write(df.columns.tolist())
 
-        st.subheader("Preview of Data")
-        st.write(df.head())
+        # Keep only required columns
+        df = df[
+            [
+                "Partner",
+                "Total Spend",
+                "Total Revenue (reports, after deduction)",
+                "Net Revenue (-7% Kueez share)",
+                "Net ROI\n(Net Rev - Spend)",
+                "Total Payout"
+            ]
+        ]
+
+        # Remove empty rows
+        df = df.dropna(subset=["Partner"])
+
+        st.success(f"Loaded {len(df)} partner rows.")
+
+        if st.button("Generate Reports"):
+
+            zip_buffer = BytesIO()
+
+            with zipfile.ZipFile(zip_buffer, "a") as zip_file:
+
+                for _, row in df.iterrows():
+
+                    partner_name = str(row["Partner"])
+
+                    doc = DocxTemplate("template.docx")
+
+                    context = {
+                        "partner_name": partner_name,
+                        "month": month,
+                        "year": year,
+                        "total_spend": row["Total Spend"],
+                        "total_revenue": row["Total Revenue (reports, after deduction)"],
+                        "net_revenue": row["Net Revenue (-7% Kueez share)"],
+                        "net_roi": row["Net ROI\n(Net Rev - Spend)"],
+                        "total_payout": row["Total Payout"]
+                    }
+
+                    doc.render(context)
+
+                    output = BytesIO()
+                    doc.save(output)
+
+                    filename = f"{partner_name}_{month}_{year}.docx"
+
+                    zip_file.writestr(
+                        filename,
+                        output.getvalue()
+                    )
+
+            st.download_button(
+                label="Download Reports ZIP",
+                data=zip_buffer.getvalue(),
+                file_name=f"partner_reports_{month}_{year}.zip",
+                mime="application/zip"
+            )
 
     except Exception as e:
         st.error(f"Error: {e}")
