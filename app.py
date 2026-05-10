@@ -18,39 +18,46 @@ if uploaded_file and month and year:
 
     try:
 
-        # Read raw Excel with no header
+        # Read raw Excel
         raw_df = pd.read_excel(
             uploaded_file,
             header=None
         )
 
-        # Find the row where "Partner" appears
         header_row = None
 
+        # Find correct table header row
         for idx, row in raw_df.iterrows():
 
             row_values = row.astype(str).tolist()
 
-            if "Partner" in row_values:
+            if (
+                "Partner" in row_values
+                and "Total Spend" in row_values
+            ):
                 header_row = idx
                 break
 
         if header_row is None:
-            st.error("Could not find header row containing 'Partner'")
+            st.error(
+                "Could not find report table."
+            )
             st.stop()
 
-        # Read Excel again using detected header row
+        # Read actual table
         df = pd.read_excel(
             uploaded_file,
             header=header_row
         )
 
-        st.success(f"Detected header row: {header_row + 1}")
+        st.success(
+            f"Detected report table at row {header_row + 1}"
+        )
 
         st.subheader("Detected Columns")
         st.write(df.columns.tolist())
 
-        # Keep only required columns
+        # Keep only needed columns
         df = df[
             [
                 "Partner",
@@ -65,37 +72,57 @@ if uploaded_file and month and year:
         # Remove empty rows
         df = df.dropna(subset=["Partner"])
 
-        st.success(f"Loaded {len(df)} partner rows.")
+        st.success(
+            f"Loaded {len(df)} partner rows."
+        )
 
         if st.button("Generate Reports"):
 
             zip_buffer = BytesIO()
 
-            with zipfile.ZipFile(zip_buffer, "a") as zip_file:
+            with zipfile.ZipFile(
+                zip_buffer,
+                "a"
+            ) as zip_file:
 
                 for _, row in df.iterrows():
 
-                    partner_name = str(row["Partner"])
+                    partner_name = str(
+                        row["Partner"]
+                    )
 
-                    doc = DocxTemplate("template.docx")
+                    doc = DocxTemplate(
+                        "template.docx"
+                    )
 
                     context = {
                         "partner_name": partner_name,
                         "month": month,
                         "year": year,
                         "total_spend": row["Total Spend"],
-                        "total_revenue": row["Total Revenue (reports, after deduction)"],
-                        "net_revenue": row["Net Revenue (-7% Kueez share)"],
-                        "net_roi": row["Net ROI\n(Net Rev - Spend)"],
-                        "total_payout": row["Total Payout"]
+                        "total_revenue": row[
+                            "Total Revenue (reports, after deduction)"
+                        ],
+                        "net_revenue": row[
+                            "Net Revenue (-7% Kueez share)"
+                        ],
+                        "net_roi": row[
+                            "Net ROI\n(Net Rev - Spend)"
+                        ],
+                        "total_payout": row[
+                            "Total Payout"
+                        ]
                     }
 
                     doc.render(context)
 
                     output = BytesIO()
+
                     doc.save(output)
 
-                    filename = f"{partner_name}_{month}_{year}.docx"
+                    filename = (
+                        f"{partner_name}_{month}_{year}.docx"
+                    )
 
                     zip_file.writestr(
                         filename,
@@ -105,7 +132,9 @@ if uploaded_file and month and year:
             st.download_button(
                 label="Download Reports ZIP",
                 data=zip_buffer.getvalue(),
-                file_name=f"partner_reports_{month}_{year}.zip",
+                file_name=(
+                    f"partner_reports_{month}_{year}.zip"
+                ),
                 mime="application/zip"
             )
 
