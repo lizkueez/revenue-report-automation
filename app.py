@@ -1,8 +1,5 @@
 import streamlit as st
 import pandas as pd
-from docxtpl import DocxTemplate
-from io import BytesIO
-import zipfile
 
 st.title("Partner Revenue Report Generator")
 
@@ -11,73 +8,17 @@ uploaded_file = st.file_uploader(
     type=["xlsx"]
 )
 
-month = st.text_input("Month")
-year = st.text_input("Year")
-
-if uploaded_file and month and year:
+if uploaded_file:
 
     try:
         # Read Excel starting from row 6
         df = pd.read_excel(uploaded_file, header=5)
 
-        # Keep only required columns
-        df = df[
-            [
-                "Partner",
-                "Total Spend",
-                "Total Revenue",
-                "Net Revenue (-7% Kueez share)",
-                "Net ROI (Net Rev - Spend)",
-                "Total Payout"
-            ]
-        ]
+        st.subheader("Detected Columns")
+        st.write(df.columns.tolist())
 
-        # Remove empty rows
-        df = df.dropna(subset=["Partner"])
-
-        st.success(f"Loaded {len(df)} partner rows.")
-
-        if st.button("Generate Reports"):
-
-            zip_buffer = BytesIO()
-
-            with zipfile.ZipFile(zip_buffer, "a") as zip_file:
-
-                for _, row in df.iterrows():
-
-                    partner_name = str(row["Partner"])
-
-                    doc = DocxTemplate("template.docx")
-
-                    context = {
-                        "partner_name": partner_name,
-                        "month": month,
-                        "year": year,
-                        "total_spend": row["Total Spend"],
-                        "total_revenue": row["Total Revenue"],
-                        "net_revenue": row["Net Revenue (-7% Kueez share)"],
-                        "net_roi": row["Net ROI (Net Rev - Spend)"],
-                        "total_payout": row["Total Payout"]
-                    }
-
-                    doc.render(context)
-
-                    output = BytesIO()
-                    doc.save(output)
-
-                    filename = f"{partner_name}_{month}_{year}.docx"
-
-                    zip_file.writestr(
-                        filename,
-                        output.getvalue()
-                    )
-
-            st.download_button(
-                label="Download Reports ZIP",
-                data=zip_buffer.getvalue(),
-                file_name=f"partner_reports_{month}_{year}.zip",
-                mime="application/zip"
-            )
+        st.subheader("Preview of Data")
+        st.write(df.head())
 
     except Exception as e:
         st.error(f"Error: {e}")
