@@ -107,19 +107,26 @@ if uploaded_file and month and year:
                         "partner_name": partner_name,
                         "month": month,
                         "year": year,
-                        "total_spend": row["Total Spend"],
-                        "total_revenue": row[
-                            "Total Revenue (reports, after deduction)"
-                        ],
-                        "net_revenue": row[
-                            "Net Revenue (-7% Kueez share)"
-                        ],
-                        "net_roi": row[
-                            "Net ROI (Net Rev - Spend)"
-                        ],
-                        "total_payout": row[
-                            "Total Payout"
-                        ]
+
+                        "total_spend": (
+                            f"${row['Total Spend']:,.2f}"
+                        ),
+
+                        "total_revenue": (
+                            f"${row['Total Revenue (reports, after deduction)']:,.2f}"
+                        ),
+
+                        "net_revenue": (
+                            f"${row['Net Revenue (-7% Kueez share)']:,.2f}"
+                        ),
+
+                        "net_roi": (
+                            f"${row['Net ROI (Net Rev - Spend)']:,.2f}"
+                        ),
+
+                        "total_payout": (
+                            f"${row['Total Payout']:,.2f}"
+                        )
                     }
 
                     doc.render(context)
