@@ -26,7 +26,7 @@ if uploaded_file and month and year:
 
         header_row = None
 
-        # Find correct table header row
+        # Detect correct report table
         for idx, row in raw_df.iterrows():
 
             row_values = row.astype(str).tolist()
@@ -44,10 +44,18 @@ if uploaded_file and month and year:
             )
             st.stop()
 
-        # Read actual table
+        # Read table
         df = pd.read_excel(
             uploaded_file,
             header=header_row
+        )
+
+        # Clean column names
+        df.columns = (
+            df.columns
+            .astype(str)
+            .str.replace("\n", " ", regex=False)
+            .str.strip()
         )
 
         st.success(
@@ -57,14 +65,14 @@ if uploaded_file and month and year:
         st.subheader("Detected Columns")
         st.write(df.columns.tolist())
 
-        # Keep only needed columns
+        # Keep required columns
         df = df[
             [
                 "Partner",
                 "Total Spend",
                 "Total Revenue (reports, after deduction)",
                 "Net Revenue (-7% Kueez share)",
-                "Net ROI\n(Net Rev - Spend)",
+                "Net ROI (Net Rev - Spend)",
                 "Total Payout"
             ]
         ]
@@ -107,7 +115,7 @@ if uploaded_file and month and year:
                             "Net Revenue (-7% Kueez share)"
                         ],
                         "net_roi": row[
-                            "Net ROI\n(Net Rev - Spend)"
+                            "Net ROI (Net Rev - Spend)"
                         ],
                         "total_payout": row[
                             "Total Payout"
