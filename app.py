@@ -16,46 +16,68 @@ year = st.text_input("Year")
 
 if uploaded_file and month and year:
 
-    df = pd.read_excel(uploaded_file)
+    try:
+        # Read Excel starting from row 6
+        df = pd.read_excel(uploaded_file, header=5)
 
-    if st.button("Generate Reports"):
+        # Keep only required columns
+        df = df[
+            [
+                "Partner",
+                "Total Spend",
+                "Total Revenue",
+                "Net Revenue (-7% Kueez share)",
+                "Net ROI (Net Rev - Spend)",
+                "Total Payout"
+            ]
+        ]
 
-        zip_buffer = BytesIO()
+        # Remove empty rows
+        df = df.dropna(subset=["Partner"])
 
-        with zipfile.ZipFile(zip_buffer, "a") as zip_file:
+        st.success(f"Loaded {len(df)} partner rows.")
 
-            for _, row in df.iterrows():
+        if st.button("Generate Reports"):
 
-                partner_name = str(row["Partner"])
+            zip_buffer = BytesIO()
 
-                doc = DocxTemplate("template.docx")
+            with zipfile.ZipFile(zip_buffer, "a") as zip_file:
 
-                context = {
-                    "partner_name": partner_name,
-                    "month": month,
-                    "year": year,
-                    "total_spend": row["Total Spend"],
-                    "total_revenue": row["Total Revenue"],
-                    "net_revenue": row["Net Revenue (-7% Kueez share)"],
-                    "net_roi": row["Net ROI (Net Rev - Spend)"],
-                    "total_payout": row["Total Payout"]
-                }
+                for _, row in df.iterrows():
 
-                doc.render(context)
+                    partner_name = str(row["Partner"])
 
-                output = BytesIO()
-                doc.save(output)
+                    doc = DocxTemplate("template.docx")
 
-                filename = f"{partner_name}_{month}_{year}.docx"
+                    context = {
+                        "partner_name": partner_name,
+                        "month": month,
+                        "year": year,
+                        "total_spend": row["Total Spend"],
+                        "total_revenue": row["Total Revenue"],
+                        "net_revenue": row["Net Revenue (-7% Kueez share)"],
+                        "net_roi": row["Net ROI (Net Rev - Spend)"],
+                        "total_payout": row["Total Payout"]
+                    }
 
-                zip_file.writestr(
-                    filename,
-                    output.getvalue()
-                )
+                    doc.render(context)
 
-        st.download_button(
-            label="Download Reports ZIP",
-            data=zip_buffer.getvalue(),
-            file_name=f"partner_reports_{month}_{year}.zip",
-            mime="application/zip"
-        )
+                    output = BytesIO()
+                    doc.save(output)
+
+                    filename = f"{partner_name}_{month}_{year}.docx"
+
+                    zip_file.writestr(
+                        filename,
+                        output.getvalue()
+                    )
+
+            st.download_button(
+                label="Download Reports ZIP",
+                data=zip_buffer.getvalue(),
+                file_name=f"partner_reports_{month}_{year}.zip",
+                mime="application/zip"
+            )
+
+    except Exception as e:
+        st.error(f"Error: {e}")
