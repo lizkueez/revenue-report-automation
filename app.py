@@ -33,6 +33,7 @@ if uploaded_file and month and year:
 
     try:
 
+        # Read raw Excel
         raw_df = pd.read_excel(
             uploaded_file,
             header=None
@@ -40,6 +41,7 @@ if uploaded_file and month and year:
 
         header_row = None
 
+        # Detect correct report table
         for idx, row in raw_df.iterrows():
 
             row_values = row.astype(str).tolist()
@@ -55,11 +57,13 @@ if uploaded_file and month and year:
             st.error("Could not find report table.")
             st.stop()
 
+        # Read actual table
         df = pd.read_excel(
             uploaded_file,
             header=header_row
         )
 
+        # Clean column names
         df.columns = (
             df.columns
             .astype(str)
@@ -67,6 +71,7 @@ if uploaded_file and month and year:
             .str.strip()
         )
 
+        # Keep required columns
         df = df[
             [
                 "Partner",
@@ -78,6 +83,7 @@ if uploaded_file and month and year:
             ]
         ]
 
+        # Remove empty rows
         df = df.dropna(subset=["Partner"])
 
         st.success(
@@ -97,6 +103,20 @@ if uploaded_file and month and year:
 
                     partner_name = str(
                         row["Partner"]
+                    )
+
+                    # Safe filename version
+                    safe_partner_name = (
+                        partner_name
+                        .replace("/", "-")
+                        .replace("\\", "-")
+                        .replace(":", "-")
+                        .replace("*", "")
+                        .replace("?", "")
+                        .replace('"', "")
+                        .replace("<", "")
+                        .replace(">", "")
+                        .replace("|", "")
                     )
 
                     context = {
@@ -129,12 +149,12 @@ if uploaded_file and month and year:
 
                         docx_path = os.path.join(
                             tmpdir,
-                            f"{partner_name}.docx"
+                            f"{safe_partner_name}.docx"
                         )
 
                         pdf_path = os.path.join(
                             tmpdir,
-                            f"{partner_name}.pdf"
+                            f"{safe_partner_name}.pdf"
                         )
 
                         doc = DocxTemplate(
@@ -161,7 +181,7 @@ if uploaded_file and month and year:
                         with open(pdf_path, "rb") as pdf_file:
 
                             zip_file.writestr(
-                                f"{partner_name}_{month}_{year}.pdf",
+                                f"{safe_partner_name}_{month}_{year}.pdf",
                                 pdf_file.read()
                             )
 
