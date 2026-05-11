@@ -3,6 +3,9 @@ import pandas as pd
 from docxtpl import DocxTemplate
 from io import BytesIO
 import zipfile
+import subprocess
+import tempfile
+import os
 
 st.title("Partner Revenue Report Generator")
 
@@ -15,7 +18,6 @@ month = st.text_input("Month")
 year = st.text_input("Year")
 
 
-# Clean currency formatting
 def format_currency(value):
 
     if pd.isna(value):
@@ -31,7 +33,6 @@ if uploaded_file and month and year:
 
     try:
 
-        # Read raw Excel
         raw_df = pd.read_excel(
             uploaded_file,
             header=None
@@ -39,7 +40,6 @@ if uploaded_file and month and year:
 
         header_row = None
 
-        # Detect correct report table
         for idx, row in raw_df.iterrows():
 
             row_values = row.astype(str).tolist()
@@ -52,18 +52,14 @@ if uploaded_file and month and year:
                 break
 
         if header_row is None:
-            st.error(
-                "Could not find report table."
-            )
+            st.error("Could not find report table.")
             st.stop()
 
-        # Read table
         df = pd.read_excel(
             uploaded_file,
             header=header_row
         )
 
-        # Clean column names
         df.columns = (
             df.columns
             .astype(str)
@@ -71,11 +67,6 @@ if uploaded_file and month and year:
             .str.strip()
         )
 
-        st.success(
-            f"Detected report table at row {header_row + 1}"
-        )
-
-        # Keep required columns
         df = df[
             [
                 "Partner",
@@ -87,14 +78,13 @@ if uploaded_file and month and year:
             ]
         ]
 
-        # Remove empty rows
         df = df.dropna(subset=["Partner"])
 
         st.success(
             f"Loaded {len(df)} partner rows."
         )
 
-        if st.button("Generate Reports"):
+        if st.button("Generate PDF Reports"):
 
             zip_buffer = BytesIO()
 
@@ -107,10 +97,6 @@ if uploaded_file and month and year:
 
                     partner_name = str(
                         row["Partner"]
-                    )
-
-                    doc = DocxTemplate(
-                        "template.docx"
                     )
 
                     context = {
@@ -139,23 +125,48 @@ if uploaded_file and month and year:
                         )
                     }
 
-                    doc.render(context)
+                    with tempfile.TemporaryDirectory() as tmpdir:
 
-                    output = BytesIO()
+                        docx_path = os.path.join(
+                            tmpdir,
+                            f"{partner_name}.docx"
+                        )
 
-                    doc.save(output)
+                        pdf_path = os.path.join(
+                            tmpdir,
+                            f"{partner_name}.pdf"
+                        )
 
-                    filename = (
-                        f"{partner_name}_{month}_{year}.docx"
-                    )
+                        doc = DocxTemplate(
+                            "template.docx"
+                        )
 
-                    zip_file.writestr(
-                        filename,
-                        output.getvalue()
-                    )
+                        doc.render(context)
+
+                        doc.save(docx_path)
+
+                        subprocess.run(
+                            [
+                                "libreoffice",
+                                "--headless",
+                                "--convert-to",
+                                "pdf",
+                                docx_path,
+                                "--outdir",
+                                tmpdir
+                            ],
+                            check=True
+                        )
+
+                        with open(pdf_path, "rb") as pdf_file:
+
+                            zip_file.writestr(
+                                f"{partner_name}_{month}_{year}.pdf",
+                                pdf_file.read()
+                            )
 
             st.download_button(
-                label="Download Reports ZIP",
+                label="Download PDF Reports ZIP",
                 data=zip_buffer.getvalue(),
                 file_name=(
                     f"partner_reports_{month}_{year}.zip"
